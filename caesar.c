@@ -1,6 +1,6 @@
 #include <cs50.h>
-#include <stdio.h>
 #include <ctype.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -34,9 +34,9 @@ int main(int argc, string argv[])
     for (; i < length; i++)
     {
         if (isupper(plaintext[i]))
-            ciphertext[i] = ((plaintext[i]-65) + k) % 26 + 65;
+            ciphertext[i] = ((plaintext[i] - 65) + k) % 26 + 65;
         else if (islower(plaintext[i]))
-            ciphertext[i] = ((plaintext[i]-97) + k) % 26 + 97;
+            ciphertext[i] = ((plaintext[i] - 97) + k) % 26 + 97;
         else
             ciphertext[i] = plaintext[i];
     }
