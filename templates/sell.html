@@ -1,14 +1,22 @@
-<h1>Sell</h1>
-<form action="{{ url_for('sell') }}" method="post">
-    <label for="symbol">Symbol:</label>
-    <select name="symbol" id="symbol">
-        {% for symbol in symbols %}
-            <option value="{{ symbol }}">{{ symbol }}</option>
+{% extends "layout.html" %}
+
+{% block title %}
+Sell
+{% endblock %}
+
+{% block main %}
+<h2>Sell</h2>
+<form action="/sell" method="post">
+    <select class="form-select mx-auto w-25" name="symbol">
+        <option disabled selected value="None">Sell</option>
+        {% for owned in port %}
+        <option value="{{ loop.index0 }}">{{ owned["symbol"] }} {{ owned["SUM(quantity)"] }}</option>
         {% endfor %}
     </select>
-    <br>
-    <label for="shares">Shares:</label>
-    <input type="text" name="shares" id="shares">
-    <br>
-    <button type="submit" class="btn btn-primary">Sell</button>
+    <div class="form-group">
+        <input autocomplete="off" autofocus class="form-control" name="shares" placeholder="Shares" type="number">
+    </div>
+    <button class="btn btn-primary" type="submit">Sell</button>
 </form>
+{% endblock %}
+

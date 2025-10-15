@@ -1,36 +1,53 @@
 {% extends "layout.html" %}
 
 {% block title %}
-    Portfolio
+Index
 {% endblock %}
 
 {% block main %}
-    <h1>Portfolio</h1>
+<h2>Portfolio</h2>
 
-    <h2>Stocks</h2>
-    <table>
+<table class="table table-striped">
+    <thead>
         <tr>
             <th>Symbol</th>
-            <th>Name</th>
             <th>Shares</th>
-            <th>Price</th>
-            <th>Total Value</th>
+            <th>Current price</th>
+            <th>Total</th>
         </tr>
-        {% for stock in stocks %}
+    </thead>
+    <tbody>
         <tr>
-            <td>{{ stock["symbol"] }}</td>
-            <td>{{ stock["name"] }}</td>
-            <td>{{ stock["total_shares"] }}</td>
-            <td>{{ stock["price"]|usd }}</td>
-            <td>{{ stock["total_value"]|usd }}</td>
+            <td>Cash</td>
+            <td></td>
+            <td></td>
+            <td>{{ balance | usd }}</td>
+
+        </tr>
+        {% for asset in port %}
+        <tr>
+            <td>{{ asset["symbol"] }}</td>
+            <td>{{ asset["SUM(quantity)"] }}</td>
+            <td>{{ prices[loop.index0] | usd }}</td>
+            <td>{{ ((prices[loop.index0])*asset["SUM(quantity)"]) | usd }}</td>
         </tr>
         {% endfor %}
-    </table>
 
-    <h2>Cash Balance</h2>
-    <p>{{ cash|usd }}</p>
+        <tr>
+            <td>-</td>
+            <td>-</td>
+            <td>-</td>
+            <td>-</td>
+        </tr>
 
-    <h2>Total Portfolio Value</h2>
-    <p>{{ total_value|usd }}</p>
+        <tr>
+            <td><b>Net total</b></td>
+            <td></td>
+            <td></td>
+            <td>{{ total_bal | usd }}</td>
+        </tr>
+    </tbody>
+</table>
+
 {% endblock %}
 
