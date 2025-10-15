@@ -63,7 +63,8 @@ def register():
             return apology("username already exists", 400)
 
         # Insert new user into database
-        db.execute("INSERT INTO users (username, hash) VALUES (?, ?)", username, generate_password_hash(password))
+        db.execute("INSERT INTO users (username, hash) VALUES (?, ?)",
+                   username, generate_password_hash(password))
 
         # Redirect user to login page
         flash("Registered successfully! Please log in.")
@@ -83,7 +84,8 @@ def index():
                         user_id=session["user_id"])
 
     # Get user's cash balance
-    cash = db.execute("SELECT cash FROM users WHERE id = :user_id", user_id=session["user_id"])[0]["cash"]
+    cash = db.execute("SELECT cash FROM users WHERE id = :user_id",
+                      user_id=session["user_id"])[0]["cash"]
 
     # Initialize variables for total values
     total_value = cash
@@ -171,7 +173,8 @@ def history():
     """Show history of transactions"""
 
     # Query the database for the user's transactions
-    transactions = db.execute("SELECT symbol, shares, price, timestamp FROM transactions WHERE user_id = ?", session["user_id"])
+    transactions = db.execute(
+        "SELECT symbol, shares, price, timestamp FROM transactions WHERE user_id = ?", session["user_id"])
 
     # Render the template for the history
     return render_template("history.html", transactions=transactions)
