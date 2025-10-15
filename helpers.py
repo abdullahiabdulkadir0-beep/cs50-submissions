@@ -150,4 +150,3 @@ def format_money(value):
     if value >= 1000000:
         return f"{value / 1000000:.2f}M"
     return value
-
