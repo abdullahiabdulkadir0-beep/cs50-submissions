@@ -1,0 +1,14 @@
+<h1>Sell</h1>
+<form action="{{ url_for('sell') }}" method="post">
+    <label for="symbol">Symbol:</label>
+    <select name="symbol" id="symbol">
+        {% for symbol in symbols %}
+            <option value="{{ symbol }}">{{ symbol }}</option>
+        {% endfor %}
+    </select>
+    <br>
+    <label for="shares">Shares:</label>
+    <input type="text" name="shares" id="shares">
+    <br>
+    <button type="submit" class="btn btn-primary">Sell</button>
+</form>
