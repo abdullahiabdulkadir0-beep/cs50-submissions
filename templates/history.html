@@ -1,32 +1,20 @@
-{% extends "layout.html" %}
+<h1>Transaction History</h1>
 
-{% block title %}
-History
-{% endblock %}
-
-{% block main %}
-<h2>Past transactions</h2>
-
-<table class="table table-hover">
-    <thead>
+<table>
+    <tr>
+        <th>Transaction</th>
+        <th>Symbol</th>
+        <th>Shares</th>
+        <th>Price</th>
+        <th>Date</th>
+    </tr>
+    {% for transaction in transactions %}
         <tr>
-            <th>Symbol</th>
-            <th>Shares</th>
-            <th>Price</th>
-            <th>Total</th>
+            <td>{{ "Buy" if transaction.shares > 0 else "Sell" }}</td>
+            <td>{{ transaction.symbol }}</td>
+            <td>{{ transaction.shares }}</td>
+            <td>{{ transaction.price }}</td>
+            <td>{{ transaction.time }}</td>
         </tr>
-    </thead>
-
-    <tbody>
-        {% for asset in port %}
-        <tr>
-            <td>{{ asset["symbol"] }}</td>
-            <td>{{ asset["quantity"]}}</td>
-            <td>{{ asset["price"] | usd }}</td>
-            <td>{{ (asset["price"]*asset["quantity"]) | usd }}</td>
-        </tr>
-        {% endfor %}
-    </tbody>
+    {% endfor %}
 </table>
-
-{% endblock %}
