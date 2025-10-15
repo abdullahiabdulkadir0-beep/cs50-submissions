@@ -5,49 +5,49 @@ Index
 {% endblock %}
 
 {% block main %}
+
 <h2>Portfolio</h2>
 
 <table class="table table-striped">
-    <thead>
-        <tr>
-            <th>Symbol</th>
-            <th>Shares</th>
-            <th>Current price</th>
-            <th>Total</th>
-        </tr>
-    </thead>
-    <tbody>
-        <tr>
-            <td>Cash</td>
-            <td></td>
-            <td></td>
-            <td>{{ balance | usd }}</td>
+<thead>
+<tr>
+<th>Symbol</th>
+<th>Shares</th>
+<th>Current Price</th>
+<th>Total Value</th>
+</tr>
+</thead>
+<tbody>
+<!-- Display Cash Balance -->
+<tr>
+<td>Cash</td>
+<td></td>
+<td></td>
+<td>{{ balance | usd }}</td>
+</tr>
 
-        </tr>
-        {% for asset in port %}
-        <tr>
-            <td>{{ asset["symbol"] }}</td>
-            <td>{{ asset["SUM(quantity)"] }}</td>
-            <td>{{ prices[loop.index0] | usd }}</td>
-            <td>{{ ((prices[loop.index0])*asset["SUM(quantity)"]) | usd }}</td>
-        </tr>
-        {% endfor %}
+    <!-- Display Owned Assets -->
+    {% for asset in port %}
+    <tr>
+        <!-- Using "symbol" and the corrected "total_shares" key -->
+        <td>{{ asset["symbol"] }}</td>
+        <td>{{ asset["total_shares"] }}</td>
+        
+        <!-- Using the cleaner data added in application.py's index() function -->
+        <td>{{ asset["current_price"] | usd }}</td>
+        <td>{{ asset["total_value"] | usd }}</td>
+    </tr>
+    {% endfor %}
 
-        <tr>
-            <td>-</td>
-            <td>-</td>
-            <td>-</td>
-            <td>-</td>
-        </tr>
+    <!-- Display Net Total -->
+    <tr>
+        <td><b>Net Total</b></td>
+        <td></td>
+        <td></td>
+        <td>{{ total_bal | usd }}</td>
+    </tr>
+</tbody>
 
-        <tr>
-            <td><b>Net total</b></td>
-            <td></td>
-            <td></td>
-            <td>{{ total_bal | usd }}</td>
-        </tr>
-    </tbody>
 </table>
 
 {% endblock %}
-

@@ -13,6 +13,7 @@ from helpers import (
     usd,
 )
 from werkzeug.security import check_password_hash, generate_password_hash
+from werkzeug.exceptions import HTTPException, InternalServerError
 
 # Configure application
 app = Flask(__name__)
@@ -50,24 +51,42 @@ def after_request(response):
 @app.route("/")
 @login_required
 def index():
-    totalBalance = balance = db.execute(
-        "SELECT cash FROM users WHERE id = ?", session["user_id"]
-    )[0]["cash"]
+    user_id = session["user_id"]
+
+    # Get user cash balance
+    balance = db.execute("SELECT cash FROM users WHERE id = ?", user_id)[0]["cash"]
+    totalBalance = balance
+
+    # Get user portfolio (sum of shares for each symbol)
+    # NOTE: Changed SUM(quantity) to SUM(shares) AS total_shares and u_id to user_id
     portfolio = db.execute(
-        "SELECT symbol, SUM(quantity) FROM transactions WHERE u_id=? GROUP BY symbol",
-        session["user_id"],
+        "SELECT symbol, SUM(shares) AS total_shares FROM transactions WHERE user_id=? GROUP BY symbol HAVING total_shares > 0",
+        user_id,
     )
     prices = []
 
-    for i, owned in enumerate(portfolio):
-        temp = lookup(owned["symbol"])["price"]
-        prices.append(temp)
-        totalBalance += portfolio[i]["SUM(quantity)"] * prices[i]
+    # Calculate total portfolio value and fetch current prices
+    for owned in portfolio:
+        # Lookup the current price
+        stock_info = lookup(owned["symbol"])
+        if stock_info is None:
+             return apology("Could not lookup current stock price", 500)
+
+        current_price = stock_info["price"]
+        prices.append(current_price)
+
+        # Calculate asset value and add to total balance
+        asset_value = owned["total_shares"] * current_price
+        totalBalance += asset_value
+
+        # Add the current price and total value to the asset dictionary for template rendering
+        owned["current_price"] = current_price
+        owned["total_value"] = asset_value
 
     return render_template(
         "index.html",
         port=portfolio,
-        prices=prices,
+        prices=[p["current_price"] for p in portfolio], # Pass the prices list needed for the template
         balance=balance,
         total_bal=totalBalance,
     )
@@ -77,37 +96,47 @@ def index():
 @login_required
 def buy():
     if request.method == "POST":
-        if not request.form.get("symbol"):
+        symbol_input = request.form.get("symbol")
+        shares_input = request.form.get("shares")
+        user_id = session["user_id"]
+
+        if not symbol_input:
             return apology("symbol cannot be blank", 400)
 
-        if not request.form.get("shares") or float(request.form.get("shares")) < 0:
-            return apology("shares cannot be empty/negative", 400)
+        # Check if shares is a positive integer
+        if not shares_input or not shares_input.isdigit() or int(shares_input) <= 0:
+             return apology("shares must be a positive whole number", 400)
 
-        symbol = lookup(request.form.get("symbol"))
+        shares = int(shares_input)
+        symbol = lookup(symbol_input)
 
         if not symbol:
             return apology("symbol not found", 400)
 
         price = symbol["price"]
-        balance = db.execute("SELECT cash FROM users WHERE id = ?", session["user_id"])[
-            0
-        ]["cash"]
+        total_cost = price * shares
 
-        new_balance = balance - (price * float(request.form.get("shares")))
+        balance = db.execute("SELECT cash FROM users WHERE id = ?", user_id)[0]["cash"]
+
+        new_balance = balance - total_cost
 
         if new_balance < 0:
-            return apology("not enough money")
+            return apology("not enough cash to complete transaction", 400)
+
+        # 1. Update user cash balance
         db.execute(
             "UPDATE users SET cash = ? WHERE id = ?",
             new_balance,
-            session["user_id"],
+            user_id,
         )
+        # 2. Insert transaction record
+        # NOTE: Changed quantity to shares and u_id to user_id
         db.execute(
-            "INSERT INTO transactions (symbol, quantity, price, u_id) VALUES(?, ?, ?, ?)",
-            request.form.get("symbol"),
-            float(request.form.get("shares")),
+            "INSERT INTO transactions (symbol, shares, price, user_id) VALUES(?, ?, ?, ?)",
+            symbol["symbol"], # Use the standardized symbol from lookup
+            shares,
             price,
-            session["user_id"],
+            user_id,
         )
         return redirect("/")
 
@@ -117,8 +146,9 @@ def buy():
 @app.route("/history")
 @login_required
 def history():
+    # NOTE: Changed quantity to shares and u_id to user_id
     portfolio = db.execute(
-        "SELECT t_id, symbol, quantity, price, u_id FROM transactions WHERE u_id=? ORDER BY t_id DESC",
+        "SELECT t_id, symbol, shares, price, user_id, timestamp FROM transactions WHERE user_id=? ORDER BY t_id DESC",
         session["user_id"],
     )
 
@@ -179,10 +209,15 @@ def quote():
     submitted = False
     if request.method == "POST":
         submitted = True
-        result = lookup(request.form.get("symbol"))
+        symbol_input = request.form.get("symbol")
+        if not symbol_input:
+            return apology("symbol cannot be blank")
+
+        result = lookup(symbol_input)
         if not result:
             return apology("symbol not found")
         time = get_time()
+
         return render_template(
             "quote.html", results=result, currTime=time, submitted=submitted
         )
@@ -231,47 +266,68 @@ def register():
 @app.route("/sell", methods=["GET", "POST"])
 @login_required
 def sell():
+    user_id = session["user_id"]
+
+    # NOTE: Changed SUM(quantity) to SUM(shares) AS total_shares and u_id to user_id
+    # Fetch current holdings with positive shares
     portfolio = db.execute(
-        "SELECT symbol, SUM(quantity) FROM transactions WHERE u_id=? GROUP BY symbol",
-        session["user_id"],
+        "SELECT symbol, SUM(shares) AS total_shares FROM transactions WHERE user_id=? GROUP BY symbol HAVING total_shares > 0",
+        user_id,
     )
 
     if request.method == "POST":
-        if not request.form.get("symbol"):
+        symbol_to_sell = request.form.get("symbol")
+        shares_input = request.form.get("shares")
+
+        if not symbol_to_sell:
             return apology("please select what to sell", 403)
 
-        if not request.form.get("shares") or int(request.form.get("shares")) < 0:
-            return apology("shares cannot be empty or negative", 403)
+        # Validate shares input
+        if not shares_input or not shares_input.isdigit() or int(shares_input) <= 0:
+            return apology("shares must be a positive whole number", 403)
 
-        # check if it's a number
-        if not request.form.get("shares").isdigit():
-            return apology("shares must be a number", 403)
+        shares_to_sell = int(shares_input)
 
-        if (
-            int(request.form.get("shares"))
-            > portfolio[int(request.form.get("symbol"))]["SUM(quantity)"]
-        ):
-            return apology("not enough shares owned", 403)
+        # Find the stock in the user's current portfolio
+        current_holding = next((item for item in portfolio if item["symbol"] == symbol_to_sell), None)
 
-        balance = db.execute("SELECT cash FROM users WHERE id = ?", session["user_id"])[
-            0
-        ]["cash"]
-        symbol = portfolio[int(request.form.get("symbol"))]["symbol"]
-        price = lookup(symbol)["price"]
-        new_balance = balance + (int(request.form.get("shares")) * price)
+        if not current_holding:
+            return apology("you do not own that stock", 403)
+
+        owned_shares = current_holding["total_shares"]
+
+        # Check if they own enough shares
+        if shares_to_sell > owned_shares:
+            return apology(f"you only own {owned_shares} shares of {symbol_to_sell}", 403)
+
+        # Lookup price
+        lookup_result = lookup(symbol_to_sell)
+        if lookup_result is None:
+            return apology("could not get current price for stock", 500)
+
+        price = lookup_result["price"]
+        sale_value = shares_to_sell * price
+
+        # 1. Update user cash (cash increases)
         db.execute(
-            "UPDATE users SET cash = ? WHERE id = ?", new_balance, session["user_id"]
+            "UPDATE users SET cash = cash + ? WHERE id = ?",
+            sale_value,
+            user_id,
         )
+
+        # 2. Record transaction (shares are negative for a sale)
+        # NOTE: Changed quantity to shares and u_id to user_id
         db.execute(
-            "INSERT INTO transactions (symbol, quantity, price, u_id) VALUES(?, ?, ?, ?)",
-            symbol,
-            -int(request.form.get("shares")),
+            "INSERT INTO transactions (symbol, shares, price, user_id) VALUES(?, ?, ?, ?)",
+            symbol_to_sell,
+            -shares_to_sell,
             price,
-            session["user_id"],
+            user_id,
         )
 
         return redirect("/")
 
+    # Pass the portfolio to sell.html
     return render_template("sell.html", port=portfolio)
 
 
@@ -285,9 +341,9 @@ def delete():
     return redirect("/login")
 
 
+@app.errorhandler(HTTPException)
 def errorhandler(e):
     """Handle error"""
     if not isinstance(e, HTTPException):
         e = InternalServerError()
     return apology(e.name, e.code)
-
